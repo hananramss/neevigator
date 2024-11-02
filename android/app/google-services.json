@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "173112848811",
+    "project_id": "neevigator-44da5",
+    "storage_bucket": "neevigator-44da5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:173112848811:android:8d0ed8f60d2a494225e2ee",
+        "android_client_info": {
+          "package_name": "com.example.neevigatorv2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC0H_EyXfISktgtH3fRsSRcRnA6NMgQDec"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

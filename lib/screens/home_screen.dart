@@ -1,91 +1,376 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:neevigatorv2/screens/welcome_screen.dart';
-import 'package:neevigatorv2/widgets/selectPhoto_button.dart';
-import 'package:neevigatorv2/widgets/takePhoto_button.dart';
+import 'package:flutter_tflite/flutter_tflite.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:developer' as devtools;
+import 'display_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+      ),
+      home: const HomeScreen(),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+
+  @override
+  State<HomeScreen> createState() => _MyHomeScreenState();
+}
+
+class _MyHomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
+
+  // Add a method to handle navigation
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  File? filePath;
+  String label = '';
+  double confidence = 0.0;
+
+  Future<void> _tfLteInit() async {
+    String? res = await Tflite.loadModel(
+      model: "assets/model_unquant.tflite",
+      labels: "assets/labels.txt",
+      numThreads: 1,
+      isAsset: true,
+      useGpuDelegate: false,
+    );
+
+    devtools.log("Model load result: $res");  // Log the result for debugging
+  }
+
+
+  // Future<void> _tfLteInit() async {
+  //   String? res = await Tflite.loadModel(
+  //     model: "assets/model_unquant.tflite",
+  //     labels: "assets/labels.txt",
+  //     numThreads: 1,
+  //     isAsset: true,
+  //     useGpuDelegate: false, //Enable GPU: If the device supports it,
+  //   );
+  // }
+
+  // pickImageGallery() async {
+  //   final ImagePicker picker = ImagePicker();
+  //   final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+  //
+  //   if (image == null) return;
+  //
+  //   var imageMap = File(image.path);
+  //
+  //   var recognitions = await Tflite.runModelOnImage(
+  //     path: image.path,
+  //     imageMean: 0.0,
+  //     imageStd: 255.0,
+  //     numResults: 2,
+  //     threshold: 0.5, // Adjust to find the optimal balance between false positives and negatives
+  //     asynch: true, //
+  //   );
+  //
+  //   if (recognitions == null || recognitions.isEmpty) {
+  //     devtools.log("No recognitions found.");
+  //     return;
+  //   }
+  //
+  //   devtools.log(recognitions.toString());
+  //   setState(() {
+  //     confidence = (recognitions[0]['confidence'] * 100);
+  //     label = recognitions[0]['label'].toString();
+  //   });
+  //
+  //   // Navigate to the Result Page
+  //   Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (context) => DisplayScreen(
+  //         imageFile: imageMap,
+  //         label: label,
+  //         confidence: confidence,
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  // pickImageCamera() async {
+  //   final ImagePicker picker = ImagePicker();
+  //   final XFile? image = await picker.pickImage(source: ImageSource.camera);
+  //
+  //   if (image == null) return;
+  //
+  //   var imageMap = File(image.path);
+  //
+  //   var recognitions = await Tflite.runModelOnImage(
+  //     path: image.path,
+  //     imageMean: 0.0,
+  //     imageStd: 255.0,
+  //     numResults: 2,
+  //     threshold: 0.2,
+  //     asynch: true,
+  //   );
+  //
+  //   if (recognitions == null || recognitions.isEmpty) {
+  //     devtools.log("No recognitions found.");
+  //     return;
+  //   }
+  //
+  //   devtools.log(recognitions.toString());
+  //   setState(() {
+  //     confidence = (recognitions[0]['confidence'] * 100);
+  //     label = recognitions[0]['label'].toString();
+  //   });
+  //
+  //   // Navigate to the Result Page
+  //   Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (context) => DisplayScreen(
+  //         imageFile: imageMap,
+  //         label: label,
+  //         confidence: confidence,
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  pickImageGallery() async {
+    final ImagePicker picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image == null) {
+        devtools.log("No image selected.");
+        return;
+      }
+
+      var imageMap = File(image.path);
+
+      var recognitions = await Tflite.runModelOnImage(
+        path: image.path,
+        imageMean: 0.0,
+        imageStd: 255.0,
+        numResults: 2,
+        threshold: 0.5,
+        asynch: true,
+      );
+
+      if (recognitions == null || recognitions.isEmpty) {
+        devtools.log("No recognitions found.");
+        return;
+      }
+
+      devtools.log(recognitions.toString());
+      if (mounted) {  // Check if the widget is still mounted before calling setState
+        setState(() {
+          confidence = (recognitions[0]['confidence'] * 100);
+          label = recognitions[0]['label'].toString();
+        });
+      }
+
+      if (mounted) {  // Check again before navigating
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DisplayScreen(
+              imageFile: imageMap,
+              label: label,
+              confidence: confidence,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      devtools.log("Error picking image from gallery: $e");
+      if (mounted) {  // Check if the widget is still mounted before showing a snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to pick image from gallery.")),
+        );
+      }
+    }
+  }
+
+  pickImageCamera() async {
+    final ImagePicker picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(source: ImageSource.camera);
+
+      if (image == null) {
+        devtools.log("No image captured.");
+        return;
+      }
+
+      var imageMap = File(image.path);
+
+      var recognitions = await Tflite.runModelOnImage(
+        path: image.path,
+        imageMean: 0.0,
+        imageStd: 255.0,
+        numResults: 2,
+        threshold: 0.2,
+        asynch: true,
+      );
+
+      if (recognitions == null || recognitions.isEmpty) {
+        devtools.log("No recognitions found.");
+        return;
+      }
+
+      devtools.log(recognitions.toString());
+      if (mounted) {  // Check if the widget is still mounted before calling setState
+        setState(() {
+          confidence = (recognitions[0]['confidence'] * 100);
+          label = recognitions[0]['label'].toString();
+        });
+      }
+
+      if (mounted) {  // Check again before navigating
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DisplayScreen(
+              imageFile: imageMap,
+              label: label,
+              confidence: confidence,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      devtools.log("Error capturing image from camera: $e");
+      if (mounted) {  // Check if the widget is still mounted before showing a snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to capture image from camera.")),
+        );
+      }
+    }
+  }
+
+
+  @override
+  void dispose() {
+    super.dispose();
+    Tflite.close();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _tfLteInit();
+  }
+
+  void _showDiagnoseOptionsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Choose an Option"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  pickImageCamera();
+                  Navigator.of(context).pop(); // Close the dialog
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text("Take a Photo"),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () {
+                  pickImageGallery();
+                  Navigator.of(context).pop(); // Close the dialog
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text("Select Photo"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        title: const Text("NEEvigator"),
       ),
-      extendBodyBehindAppBar: true,
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center, // Center all children vertically
-        children: <Widget>[
-          // Centering the text content
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                const Text(
-                  'Welcome to NEEvigator', // First text widget
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold), // Style for the first text
-                ),
-                const SizedBox(height: 20), // Add some spacing between the two text widgets
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0), // Set left and right padding
-                  alignment: Alignment.center, // Center align the text within the container
-                  child: const Text(
-                    'A Mobile Application for Detecting Abaca Bunchy Top Virus in Abaca ', // Second text widget
-                    style: TextStyle(fontSize: 18), // Style for the second text
-                    textAlign: TextAlign.center, // Center-align the text
+      body: SingleChildScrollView(
+        child: Center(
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  // Show the dialog when "Start Diagnose" is pressed
+                  _showDiagnoseOptionsDialog(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
                   ),
+                  foregroundColor: Colors.black,
                 ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0), // Set left and right padding
-                  alignment: Alignment.center, // Center align the text within the container
-                  child: const Text(
-                    'Select an option to get started:',
-                    style: TextStyle(fontSize: 18), // Style for the second text
-                    textAlign: TextAlign.center, // Center-align the text
-                  ),
-                ),
-              ],
-            ),
+                child: const Text("Start Diagnose"),
+              ),
+            ],
           ),
-          // Spacing and Buttons
-          const SizedBox(height: 40), // Add space between text and buttons
-          Padding(
-            padding: const EdgeInsets.all(16.0), // Optional padding around the buttons
-            child: Column(
-              children: [
-                TextButton(
-                  onPressed: () {
-                    // Navigate to the screen when the button is pressed
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-                    );
-                  },
-                  child: const TakePhotoButton(), // Your custom GetStartedButton widget
-                ),
-                TextButton(
-                  onPressed: () {
-                    // Navigate to the screen when the button is pressed
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-                    );
-                  },
-                  child: const SelectPhotoButton(), // Your custom SelectPhotoButton widget
-                ),
-                TextButton(
-                  onPressed: () {
-                    // Perform some action (e.g., close the app or pop the current screen)
-                    Navigator.pop(context);
-                  },
-                  child: const Text("Close"), // Default Flutter CloseButton
-                ),
-              ],
-            ),
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.qr_code_scanner), // Icon for 'Diagnose'
+            label: 'Diagnose',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.save), // Icon for 'Data'
+            label: 'Data',
           ),
         ],
       ),
     );
   }
 }
+
